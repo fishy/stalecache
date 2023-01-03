@@ -22,6 +22,13 @@ func (d *cached[T]) load(ctx context.Context, loader Loader[T]) (*T, time.Time, 
 	return d.data, d.loaded, d.err
 }
 
+func (d *cached[T]) update(data *T) {
+	d.once.Do(func() {
+		d.data = data
+		d.loaded = time.Now()
+	})
+}
+
 // Loader defines the callback to load value from external source.
 //
 // It's called when either the ttl passed, or when validator returned false.
@@ -131,4 +138,11 @@ func (c *Cache[T]) Load(ctx context.Context) (*T, error) {
 		return data, err
 	}
 	return newData, nil
+}
+
+// Update updates the cache with data and current timestamp.
+func (c *Cache[T]) Update(data *T) {
+	entry := new(cached[T])
+	entry.update(data)
+	c.cached.Store(entry)
 }

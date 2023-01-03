@@ -127,3 +127,51 @@ func TestCacheValidator(t *testing.T) {
 		})
 	}
 }
+
+func TestCacheUpdate(t *testing.T) {
+	const (
+		loaded  = "loaded"
+		updated = "updated"
+
+		ttl = 10 * time.Millisecond
+	)
+	cache := stalecache.New(
+		func(context.Context) (*string, error) {
+			s := loaded
+			return &s, nil
+		},
+		stalecache.WithTTL[string](ttl),
+	)
+
+	checkLoaded := func(t *testing.T, want string) {
+		t.Helper()
+		data, err := cache.Load(context.Background())
+		if err != nil {
+			t.Fatalf("Load got error: %v", err)
+		}
+		if *data != want {
+			t.Errorf("Load got %q, want %q", *data, want)
+		}
+	}
+
+	t.Run("load", func(t *testing.T) {
+		checkLoaded(t, loaded)
+	})
+
+	t.Run("update", func(t *testing.T) {
+		time.Sleep(ttl / 2)
+		s := updated
+		cache.Update(&s)
+		checkLoaded(t, updated)
+	})
+
+	t.Run("not-stale", func(t *testing.T) {
+		time.Sleep(ttl / 2)
+		checkLoaded(t, updated)
+	})
+
+	t.Run("stale", func(t *testing.T) {
+		time.Sleep(ttl / 2)
+		checkLoaded(t, loaded)
+	})
+}
